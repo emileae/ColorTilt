@@ -1,0 +1,481 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      html {
+        margin: 0px;
+        padding: 0px;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0px;
+        padding: 0px;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+
+      }
+      #myCanvas{
+        display: block;
+        margin: auto;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+      }
+      #color_div{
+        width: 100%;
+        height: 100px;
+        padding: 30px;
+        text-align: center;
+        font-size: 30px;
+        box-sizing: border-box;
+        margin: 0px;
+      }
+      #acc_div{
+        width: 100%;
+        height: 50px;
+        text-align: centre;
+        box-sizing: border-box;
+        margin: 0px;
+      }
+      #target{
+        width: 10px;
+        height: 10px;
+        border: 1px solid red;
+        position: absolute;
+      }
+      .button{
+        width: 100%;
+        background-color: rgb(80, 80, 80);
+        color: rgb(200, 200, 200);
+        text-align: center;
+        padding: 20px;
+        border: 1px solid rgb(200, 200, 200);
+        box-sizing: border-box;
+        margin: 0px;
+      }
+      .button:hover{
+        background-color: rgb(150, 150, 150);
+      }
+    </style>
+
+    <script type="text/javascript" charset="utf-8" src="cordova.js"></script>
+
+  </head>
+  <body>
+    <canvas id="myCanvas" width="256" height="256"></canvas>
+    <div id="color_div"></div>
+    <div id="acc_div">
+        <ul id="app-status-ul">
+        </ul>
+    </div>
+    <div id="target"></div>
+      
+    <div id="touch" class="button">Touch</div>
+    <div id="tilt" class="button">Tilt</div>
+
+    <SCRIPT TYPE="text/javascript" src="libs/jquery-1.11.1.min.js"></SCRIPT>
+    <script>
+
+      function position_target(mousePos){
+        var position = $("#myCanvas").position();
+
+        $("#target").css("top", position.top + mousePos.y);
+        $("#target").css("left", position.left + mousePos.x);
+      };
+
+      var mouseDown = false;
+      var img_width = "";
+      var img_height = "";
+      var padding = 0;
+      var canvas = "";
+      var context = "";
+      var mousePos = {x: 100, y: 100};
+      position_target(mousePos);
+
+      var touchtilt = true;
+
+      $("body").on("touchend", "#touch", function(){
+        touchtilt = false;
+      });
+      $("body").on("touchend", "#tilt", function(){
+        touchtilt = true;
+      });
+
+      function componentToHex(c) {
+      var hex = c.toString(16);
+          return hex.length == 1 ? "0" + hex : hex;
+      }
+      function rgbToHex(r, g, b) {
+          return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+      }
+
+      function getMousePos(canvas, evt) {
+        var rect = canvas.getBoundingClientRect();
+        return {
+          x: evt.changedTouches[0].pageX - rect.left,
+          y: evt.changedTouches[0].pageY - rect.top
+          /*x: evt.clientX - rect.left,
+          y: evt.clientY - rect.top*/
+        };
+      }
+      function drawColorSquare(canvas, color, mousePos) {
+        var colorSquareSize = 10;
+        var context = canvas.getContext('2d');
+        var squareX = mousePos.x;
+        var squareY = mousePos.y;
+
+        context.beginPath();
+        context.fillStyle = color;
+        context.fillRect(squareX, squareY, colorSquareSize, colorSquareSize);
+        context.strokeRect(squareX, squareY, colorSquareSize, colorSquareSize);
+      };
+      
+
+      function rgbToHsl(r, g, b){
+          r /= 255, g /= 255, b /= 255;
+          var max = Math.max(r, g, b), min = Math.min(r, g, b);
+          var h, s, l = (max + min) / 2;
+
+          if(max == min){
+              h = s = 0; // achromatic
+          }else{
+              var d = max - min;
+              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+              switch(max){
+                  case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                  case g: h = (b - r) / d + 2; break;
+                  case b: h = (r - g) / d + 4; break;
+              }
+              h /= 6;
+          }
+
+          return [h, s, l];
+      }
+      function hslToRgb(h, s, l){
+          var r, g, b;
+
+          if(s == 0){
+              r = g = b = l; // achromatic
+          }else{
+              function hue2rgb(p, q, t){
+                  if(t < 0) t += 1;
+                  if(t > 1) t -= 1;
+                  if(t < 1/6) return p + (q - p) * 6 * t;
+                  if(t < 1/2) return q;
+                  if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                  return p;
+              }
+
+              var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+              var p = 2 * l - q;
+              r = hue2rgb(p, q, h + 1/3);
+              g = hue2rgb(p, q, h);
+              b = hue2rgb(p, q, h - 1/3);
+          }
+
+          return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+      }
+      function compHSL(hsl_array){
+        var h = hsl_array[0];
+        var s = hsl_array[1];
+        var l = hsl_array[2];
+
+        var comp_h = 1-h;
+        s = 1-s;
+        l = 1-l;
+
+        var comp_rgb = hslToRgb(comp_h, s, l);
+
+        var comp_hex = rgbToHex(comp_rgb[0], comp_rgb[1], comp_rgb[2]);
+
+        return comp_hex
+
+      };
+
+      function init(imageObj) {
+        padding = 0;
+
+        img_width = imageObj.width;
+        mg_height = imageObj.height;
+
+        canvas = document.getElementById('myCanvas');
+        context = canvas.getContext('2d');
+
+        context.strokeStyle = '#444';
+        context.lineWidth = 2;
+
+        canvas.addEventListener('touchstart', function() {
+          mouseDown = true;
+        }, false);
+
+        canvas.addEventListener('touchend', function() {
+          mouseDown = false;
+        }, false);
+
+        canvas.addEventListener('touchmove', function(evt) {
+          mousePos = getMousePos(canvas, evt);
+          render_color(mousePos, touchtilt);
+        }, false);
+
+        context.drawImage(imageObj, 0, 0);
+
+        render_color(mousePos, touchtilt);
+
+      };
+
+      var imageObj = new Image();
+      imageObj.onload = function() {
+        init(this);
+      };
+      imageObj.src = 'images/color-picker.png';
+
+      function render_color(mousePos, tilt){
+          var color = undefined;
+          if( !tilt ){
+            if(mouseDown && mousePos !== null) {
+              var imageData = context.getImageData(padding, padding, imageObj.width, imageObj.height);
+              var data = imageData.data;
+              var x = mousePos.x - padding;
+              var y = mousePos.y - padding;
+              var red = data[((imageObj.width * y) + x) * 4];
+              var green = data[((imageObj.width * y) + x) * 4 + 1];
+              var blue = data[((imageObj.width * y) + x) * 4 + 2];
+              var color = 'rgb(' + red + ',' + green + ',' + blue + ')';
+
+              $("body").css("background-color", color);
+              var hex_val = rgbToHex(red, green, blue);
+              var hsl_array = rgbToHsl(red, green, blue);
+              var comp_color = compHSL(hsl_array);
+              $("#color_div").text(hex_val);
+              $("#color_div").css("color", comp_color);
+            }
+          }else{
+            var imageData = context.getImageData(padding, padding, imageObj.width, imageObj.height);
+            var data = imageData.data;
+            var x = mousePos.x - padding;
+            var y = mousePos.y - padding;
+            var red = data[((imageObj.width * y) + x) * 4];
+            var green = data[((imageObj.width * y) + x) * 4 + 1];
+            var blue = data[((imageObj.width * y) + x) * 4 + 2];
+            var color = 'rgb(' + red + ',' + green + ',' + blue + ')';
+
+            $("body").css("background-color", color);
+            var hex_val = rgbToHex(red, green, blue);
+            var hsl_array = rgbToHsl(red, green, blue);
+            var comp_color = compHSL(hsl_array);
+            $("#color_div").text(hex_val);
+            $("#color_div").css("color", comp_color);
+          };
+
+          position_target(mousePos);
+
+        };
+
+    </script>
+
+    <SCRIPT TYPE="text/javascript">
+       // The watch id references the current `watchAcceleration`
+    var watchID = null;
+    var pushNotification;
+
+
+    function post_registration_id(reg_id, platform){
+        
+        alert("post to server");
+
+        function post_success(data){
+          alert(data.message);
+          console.log(data);
+          alert(JSON.stringify(data));
+        };
+
+        $.ajax({
+            type: "post",
+            url: "http://phonegap-staging.appspot.com/save_id",
+            dataType: "json",
+            data: {"reg_id": reg_id, "platform": platform},
+            success: post_success
+        }).fail(function(e){
+            alert("FAIL");
+            alert(JSON.stringify(e));
+        });
+    }; 
+    // This function needs to be global
+    function onNotificationGCM(e) {
+        alert("notified");
+        //console.log(e);
+        switch( e.event )
+        {
+            case 'registered':
+                if ( e.regid.length > 0 )
+                {
+                    console.log("Regid " + e.regid);
+                    alert('registration id = '+e.regid);
+                    post_registration_id(e.regid, "android");
+                }
+            break;
+ 
+            case 'message':
+              // this is the actual push notification. its format depends on the data model from the push server
+              alert('message = '+e.message+' msgcnt = '+e.msgcnt);
+            break;
+ 
+            case 'error':
+              alert('GCM error = '+e.msg);
+            break;
+ 
+            default:
+              alert('An unknown GCM event has occurred');
+              break;
+        };
+
+    };
+
+    function onNotificationAPN(event){
+      alert("notified APNS");
+      console.log(event);
+      if ( event.alert )
+      {
+          navigator.notification.alert(event.alert);
+      };
+
+      if ( event.sound )
+      {
+          var snd = new Media(event.sound);
+          snd.play();
+      };
+
+      if ( event.badge )
+      {
+          pushNotification.setApplicationIconBadgeNumber(successHandler, errorHandler, event.badge);
+      };
+    };
+
+    // Wait for device API libraries to load
+    //
+    document.addEventListener("deviceready", onDeviceReady, false);
+
+    // device APIs are available
+    //
+    function onDeviceReady() {
+        pushNotification = window.plugins.pushNotification;
+        push_register();
+        startWatch();
+
+        alert("Platform: "+device.platform);
+
+    };
+
+    function onSuccess(acceleration) {
+        var element = document.getElementById('acc_div');
+
+        var x = acceleration.x;
+        var y = acceleration.y;
+        /*element.innerHTML = 'Acceleration X: ' + acceleration.x         + '<br />' +
+                            'Acceleration Y: ' + acceleration.y         + '<br />' +
+                            'Acceleration Z: ' + acceleration.z         + '<br />' +
+                            'Timestamp: '      + acceleration.timestamp + '<br />';*/
+        if ( touchtilt ){
+          mousePos.x += -Math.floor(x);
+          mousePos.y += Math.floor(y);
+
+          if(mousePos.x >= 255){
+            mousePos.x = 255;
+          }else if( mousePos.x <= 0 ){
+            mousePos.x = 0;
+          };
+          if(mousePos.y >= 255){
+            mousePos.y = 255;
+          }else if( mousePos.y <= 0 ){
+            mousePos.y = 0;
+          }
+        };
+
+        //element.innerHTML = "x: "+Math.floor(x)+" y: "+Math.floor(y)+", mousePos: "+mousePos.x+", "+mousePos.y;
+
+        render_color(mousePos, touchtilt);
+    };
+
+    // Start watching the acceleration
+    //
+    function startWatch() {
+
+        // Update acceleration every 3 seconds
+        var options = { frequency: 100 };
+
+        watchID = navigator.accelerometer.watchAcceleration(onSuccess, onError, options);
+    };
+
+    // Stop watching the acceleration
+    //
+    function stopWatch() {
+        if (watchID) {
+            navigator.accelerometer.clearWatch(watchID);
+            watchID = null;
+        }
+    };
+    // onError: Failed to get the acceleration
+    //
+    function onError() {
+        alert('onError!');
+    };
+
+    function push_register(){
+
+      alert("push register");
+      
+      //$("#app-status-ul").append('<li>registering ' + device.platform + '</li>');
+      
+      if ( device.platform == 'android' || device.platform == 'Android' || device.platform == "amazon-fireos" ){
+
+          pushNotification.register(
+          successHandler,
+          errorHandler,
+          {
+              "senderID":"343949178684",//"343949178684"-phonegap-staging "21713712935"-our-metric-697,
+              "ecb":"onNotificationGCM"
+          });
+      } else {
+          //var pushNotification = window.plugins.pushNotification;
+          /*pushNotification.registerDevice({alert:true, badge:true, sound:true}, function(status) {
+              alert(status);
+              alert(status.deviceToken);
+              //app.myLog.value+=JSON.stringify(['registerDevice status: ', status])+"\n";
+              //app.storeToken(status.deviceToken);
+          });*/
+          pushNotification.register(
+          tokenHandler,
+          errorHandler,
+          {
+              "badge":"true",
+              "sound":"true",
+              "alert":"true",
+              "ecb":"onNotificationAPN"
+          });
+      };
+
+      function successHandler(result){
+        alert('Callback Success! Result = '+result);
+        //console.log(result);
+      };
+      function errorHandler(){
+        alert("error push");
+      };
+      function tokenHandler(result){
+        alert("token handler");
+        alert(JSON.stringify(result));
+        post_registration_id(result, "ios");
+        console.log(result);
+      };
+
+    };
+
+    </SCRIPT>
+
+  </body>
+</html>
+      
