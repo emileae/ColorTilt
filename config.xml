@@ -2,7 +2,7 @@
 <widget xmlns = "http://www.w3.org/ns/widgets"
 
     xmlns:gap   = "http://phonegap.com/ns/1.0"
-    id          = "com.appspot.phonegap-staging.www"
+    id          = "com.appspot.phonegap-staging.colortilt.www"
     version     = "1.0.0"
     versionCode = "10" >
 
@@ -10,10 +10,10 @@
 
     <preference name="phonegap-version" value="3.5.0" />
 
-    <name>RTD</name>
+    <name>ColorTilt</name>
 
     <description>
-    RTD Supernice test app
+    Tilt your phone to change the color!
     </description>
 
     <author href="http://www.wearesupernice.com/" email="dev@wearesupernice.com">
